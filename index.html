@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* ===== هوية تل السنديان البصرية (مضافة من menu.html) ===== */
+        /* ===== هوية تل السنديان البصرية ===== */
         :root {
             --forest-green-light: #3f8b3a;
             --forest-green-bright: #5cb85c;
@@ -29,7 +29,7 @@
             --transition-smooth: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             --shadow-elevation: 0 25px 45px -10px rgba(30, 70, 10, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.5) inset;
 
-            /* المتغيرات الأصلية لشاشة المطبخ (محفوظة) */
+            /* المتغيرات الأصلية */
             --forest-green: #2D5A27;
             --olive-green: #4A7B3D;
             --clay-brown: #8B5A2B;
@@ -45,10 +45,9 @@
             --radius-xl: 40px;
             --transition-fast: 0.2s ease;
 
-            /* متغيرات إضافية من كود رقم 1 (تم تعديل الألوان إلى الأخضر) */
             --black-soft: #1a1a1a;
-            --green-bright: #4CAF50;        /* أخضر فاتح بدلاً من الذهبي */
-            --green-rich: #2E7D32;          /* أخضر غامق بدلاً من الذهبي الغامق */
+            --green-bright: #4CAF50;
+            --green-rich: #2E7D32;
             --shadow-green: rgba(76, 175, 80, 0.6);
         }
 
@@ -60,17 +59,16 @@
 
         body {
             font-family: 'Cairo', 'Tajawal', sans-serif;
-            background: radial-gradient(circle at 10% 20%, #386f2e, #1f4a18); /* نفس خلفية menu */
+            background: radial-gradient(circle at 10% 20%, #386f2e, #1f4a18);
             color: var(--text-dark);
             direction: rtl;
             min-height: 100vh;
             position: relative;
             line-height: 1.5;
             overflow-x: hidden;
-            font-size: 16px; /* قاعدة ثابتة للـ rem */
+            font-size: 16px;
         }
 
-        /* خلفية الغابة المتحركة (من menu.html) */
         #animated-forest-bg {
             position: fixed;
             top: 0;
@@ -83,45 +81,8 @@
             box-shadow: inset 0 0 150px rgba(255, 255, 255, 0.3);
         }
 
-        /* الأوراق المتساقطة */
-        .falling-leaves {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: -1;
-            overflow: hidden;
-        }
+        /* تم إزالة الأوراق المتساقطة بالكامل */
 
-        .leaf {
-            position: absolute;
-            top: -10%;
-            color: rgba(255, 255, 240, 0.9);
-            font-size: 1.8rem;
-            text-shadow: 0 0 15px #ffffff, 0 0 30px #f0fff0;
-            animation: fall linear infinite;
-            user-select: none;
-            opacity: 0.9;
-            filter: drop-shadow(0 10px 8px rgba(0,0,0,0.2));
-        }
-
-        @keyframes fall {
-            0% {
-                transform: translateY(-20vh) rotate(0deg) scale(1);
-                opacity: 0.9;
-            }
-            80% {
-                opacity: 0.7;
-            }
-            100% {
-                transform: translateY(120vh) rotate(360deg) scale(0.8);
-                opacity: 0.2;
-            }
-        }
-
-        /* تصميم الشعار المضيء والإطار (منقول من كود رقم 1) - تم تعديل الألوان إلى الأخضر */
         .startup-logo {
             width: clamp(120px, 40vw, 170px);
             height: clamp(120px, 40vw, 170px);
@@ -170,12 +131,12 @@
             display: block;
         }
 
-        /* ---------- الأنماط الأصلية لشاشة المطبخ (معدلة للجوال) ---------- */
+        /* الأنماط الأصلية */
         #bg-pattern {
             display: none;
         }
 
-        /* ----- STARTUP SCREEN (معدل للجوال) ----- */
+        /* STARTUP SCREEN */
         #startup-screen {
             position: fixed;
             inset: 0;
@@ -235,7 +196,7 @@
             font-size: 1.4rem;
         }
 
-        /* ----- MAIN CONTENT (معدل للجوال) ----- */
+        /* MAIN CONTENT */
         #main-content {
             max-width: 100%;
             margin: 0 auto;
@@ -246,7 +207,7 @@
             z-index: 1;
         }
 
-        /* ----- HEADER (معدل للجوال) ----- */
+        /* HEADER */
         .kitchen-header {
             background: rgba(255, 249, 240, 0.95);
             backdrop-filter: blur(10px);
@@ -310,6 +271,7 @@
             display: flex;
             gap: 12px;
             justify-content: center;
+            align-items: center;
         }
 
         .control-btn {
@@ -327,6 +289,7 @@
             align-items: center;
             justify-content: center;
             box-shadow: var(--shadow-sm);
+            position: relative;
         }
 
         .control-btn:hover {
@@ -335,7 +298,16 @@
             border-color: var(--cream-white);
         }
 
-        /* ----- TABS (معدل للجوال) ----- */
+        /* مؤشر التحميل الدوار */
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* TABS */
         .kitchen-tabs {
             display: flex;
             gap: 8px;
@@ -384,7 +356,7 @@
             color: var(--forest-green);
         }
 
-        /* ----- ORDERS GRID (معدل للجوال) ----- */
+        /* ORDERS GRID */
         .orders-grid {
             display: grid;
             grid-template-columns: 1fr;
@@ -648,7 +620,7 @@
             font-size: 1rem;
         }
 
-        /* ----- POPUP (معدل للجوال) ----- */
+        /* POPUP */
         .popup-overlay {
             position: fixed;
             inset: 0;
@@ -935,7 +907,6 @@
             to { transform: translate(-50%, 0); opacity: 1; }
         }
 
-        /* إزالة أي استعلام وسائط سابق لأنه تم دمج التعديلات في التصميم الأساسي للجوال */
         @media (max-width: 380px) {
             .header-logo h1 {
                 font-size: 1.1rem;
@@ -957,9 +928,8 @@
     </style>
 </head>
 <body>
-    <!-- خلفية الغابة والأوراق المتساقطة (مضافة) -->
+    <!-- خلفية الغابة (بدون أوراق) -->
     <div id="animated-forest-bg"></div>
-    <div class="falling-leaves" id="fallingLeaves"></div>
 
     <div id="startup-screen">
         <div class="startup-logo">
@@ -1084,40 +1054,21 @@
 
     <script>
         // ================================
-        // دالة إنشاء الأوراق المتساقطة (مضافة)
+        // إعدادات محسنة للأداء مع ضعف الإنترنت
         // ================================
-        function createLeaves() {
-            const leavesContainer = document.getElementById('fallingLeaves');
-            if (!leavesContainer) return;
-            const leafCount = 30;
-            for (let i = 0; i < leafCount; i++) {
-                const leaf = document.createElement('div');
-                leaf.className = 'leaf';
-                const leafSymbols = ['🌿', '🍂', '🍃'];
-                leaf.textContent = leafSymbols[Math.floor(Math.random() * leafSymbols.length)];
-                const size = Math.random() * 1.5 + 1.2;
-                leaf.style.fontSize = size + 'rem';
-                leaf.style.left = Math.random() * 100 + '%';
-                const duration = Math.random() * 10 + 12;
-                leaf.style.animationDuration = duration + 's';
-                leaf.style.animationDelay = Math.random() * -20 + 's';
-                leaf.style.color = `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.5})`;
-                leavesContainer.appendChild(leaf);
-            }
-        }
-
-        // إعدادات النظام الأصلية (محفوظة بالكامل)
         const CONFIG = {
             API_URL: 'https://script.google.com/macros/s/AKfycbzU7pp0Ul8KNDT4iEd7kGFxNrXYzX4B4zfdYANjE59ABvMq1vIKlmEM4gAOipY47Zeoiw/exec',
             RESTAURANT: {
                 name: 'تل السنديان',
                 code: 'TSN'
             },
-            REFRESH_INTERVAL: 3000,
-            ALERT_DURATION: 60000
+            REFRESH_INTERVAL: 10000,          // زيادة الفترة إلى 10 ثوانٍ لتقليل ضغط الشبكة
+            ALERT_DURATION: 60000,
+            CACHE_KEY: 'tel_alsindian_orders',
+            CACHE_TIMESTAMP_KEY: 'orders_timestamp',
+            MAX_RETRIES: 3,                    // عدد محاولات إعادة الاتصال
+            RETRY_DELAY: 2000                   // تأخير أولي للمحاولة (يزداد مع كل محاولة)
         };
-
-        const LOCAL_STORAGE_KEY = 'tel_alsindian_orders';
 
         const KitchenState = {
             active: false,
@@ -1129,7 +1080,10 @@
             currentAlertOrder: null,
             timerInterval: null,
             refreshInterval: null,
-            initialLoad: true
+            initialLoad: true,
+            isLoading: false,                    // لمنع التحميل المتزامن
+            retryCount: 0,
+            online: navigator.onLine
         };
 
         const DOM = {
@@ -1157,7 +1111,7 @@
         };
 
         // ================================
-        // دوال مساعدة لاستخراج الأرقام
+        // دوال مساعدة لاستخراج الأرقام (كما هي)
         // ================================
         function extractNumber(value) {
             if (value === null || value === undefined) return 0;
@@ -1226,11 +1180,30 @@
             DOM.mainContent.style.opacity = '1';
             
             playTestSound();
-            loadOrders();
+            
+            // تحميل البيانات المخزنة فورًا ثم التحديث من الخادم
+            loadCachedOrders();
+            loadOrdersWithRetry();
+            
             startAutoRefresh();
+            
+            // مراقبة حالة الاتصال
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
             
             showNotification('✅ تم تشغيل نظام المطبخ', 'success');
         });
+
+        function handleOnline() {
+            KitchenState.online = true;
+            showNotification('📶 تم استعادة الاتصال بالإنترنت', 'success');
+            loadOrdersWithRetry(); // تحديث فوري
+        }
+
+        function handleOffline() {
+            KitchenState.online = false;
+            showNotification('⚠️ انقطع الاتصال بالإنترنت، يتم عرض الطلبات المخزنة', 'error');
+        }
 
         function playTestSound() {
             if (DOM.notificationSound && KitchenState.soundEnabled) {
@@ -1245,55 +1218,99 @@
         }
 
         // ================================
-        // جلب الطلبات
+        // تحميل الطلبات من الخادم مع إعادة محاولة ذكية
         // ================================
-        async function loadOrders() {
-            if (!KitchenState.active) return;
+        async function loadOrdersWithRetry() {
+            if (!KitchenState.active || KitchenState.isLoading) return;
             
-            try {
-                await loadFromAPI();
-            } catch (error) {
-                console.log('فشل الاتصال بالخادم، التحميل من التخزين المحلي');
-                loadFromLocalStorage();
-            }
-        }
-
-        async function loadFromAPI() {
-            try {
-                const url = `${CONFIG.API_URL}?action=getOrders&status=all&_=${Date.now()}`;
-                
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000);
-                
-                const response = await fetch(url, { 
-                    method: 'GET',
-                    signal: controller.signal,
-                    mode: 'cors',
-                    headers: {
-                        'Accept': 'application/json'
+            KitchenState.isLoading = true;
+            // إضافة أيقونة دوران لزر التحديث
+            DOM.refreshBtn.innerHTML = '<i class="fas fa-spinner spinner"></i>';
+            
+            let retries = 0;
+            let success = false;
+            
+            while (retries < CONFIG.MAX_RETRIES && !success && KitchenState.active) {
+                try {
+                    await loadFromAPI();
+                    success = true;
+                    KitchenState.retryCount = 0; // إعادة تعيين العداد عند النجاح
+                } catch (error) {
+                    retries++;
+                    KitchenState.retryCount = retries;
+                    console.log(`محاولة فاشلة (${retries}/${CONFIG.MAX_RETRIES})`);
+                    
+                    if (retries < CONFIG.MAX_RETRIES) {
+                        // تأخير متزايد (exponential backoff)
+                        const delay = CONFIG.RETRY_DELAY * Math.pow(2, retries - 1);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        // بعد فشل كل المحاولات، نعتمد على التخزين المحلي
+                        console.log('فشل الاتصال بالخادم بعد عدة محاولات، استخدام التخزين المحلي');
+                        loadFromLocalStorage();
+                        if (!KitchenState.online) {
+                            showNotification('🔴 غير متصل بالإنترنت، يتم عرض آخر الطلبات المحفوظة', 'error');
+                        }
                     }
-                });
-                clearTimeout(timeoutId);
-                
-                const data = await response.json();
-                
-                if (data.success && data.orders) {
-                    processOrders(data.orders);
-                } else {
-                    loadFromLocalStorage();
                 }
-            } catch (error) {
-                console.error('خطأ في تحميل الطلبات من API:', error);
-                loadFromLocalStorage();
+            }
+            
+            KitchenState.isLoading = false;
+            DOM.refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+        }
+
+        // تحميل من API
+        async function loadFromAPI() {
+            const url = `${CONFIG.API_URL}?action=getOrders&status=all&_=${Date.now()}`;
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 ثوانٍ مهلة
+            
+            const response = await fetch(url, { 
+                method: 'GET',
+                signal: controller.signal,
+                mode: 'cors',
+                headers: { 'Accept': 'application/json' }
+            });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            const data = await response.json();
+            
+            if (data.success && data.orders) {
+                processOrders(data.orders);
+                saveToLocalStorage(data.orders); // تخزين للاستخدام المستقبلي
+            } else {
+                throw new Error('Invalid data format');
             }
         }
 
+        // تحميل من التخزين المحلي (في حالة عدم وجود اتصال)
         function loadFromLocalStorage() {
             try {
-                const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
-                processOrders(orders);
+                const orders = JSON.parse(localStorage.getItem(CONFIG.CACHE_KEY) || '[]');
+                if (orders.length > 0) {
+                    processOrders(orders);
+                } else {
+                    // لا توجد طلبات مخزنة، عرض فارغ
+                    displayOrders([]);
+                }
             } catch (error) {
                 console.error('خطأ في التحميل من التخزين المحلي:', error);
+            }
+        }
+
+        // تحميل البيانات المخزنة فورًا عند التشغيل
+        function loadCachedOrders() {
+            try {
+                const orders = JSON.parse(localStorage.getItem(CONFIG.CACHE_KEY) || '[]');
+                if (orders.length > 0) {
+                    processOrders(orders);
+                    showNotification('📦 تم تحميل الطلبات من الذاكرة المحلية', 'info');
+                }
+            } catch (error) {
+                console.error('خطأ في تحميل الكاش:', error);
             }
         }
 
@@ -1303,6 +1320,7 @@
         function processOrders(orders) {
             const oldOrders = [...KitchenState.orders];
             
+            // تطبيع البيانات بشكل أسرع
             KitchenState.orders = orders.map(order => {
                 const normalizedOrder = {
                     orderId: order.orderId || order.id || 'UNKNOWN',
@@ -1336,6 +1354,7 @@
             updateStats();
             filterOrders(KitchenState.currentStatus);
             
+            // التحقق من الطلبات الجديدة فقط إذا لم يكن التحميل الأولي
             if (!KitchenState.initialLoad) {
                 checkNewOrders(oldOrders, KitchenState.orders);
             } else {
@@ -1343,9 +1362,21 @@
                 KitchenState.initialLoad = false;
             }
             
-            saveToLocalStorage();
+            // حفظ في الكاش بعد المعالجة
+            saveToLocalStorage(KitchenState.orders);
         }
 
+        // حفظ في localStorage
+        function saveToLocalStorage(orders) {
+            try {
+                localStorage.setItem(CONFIG.CACHE_KEY, JSON.stringify(orders));
+                localStorage.setItem(CONFIG.CACHE_TIMESTAMP_KEY, Date.now().toString());
+            } catch (error) {
+                console.error('خطأ في الحفظ إلى التخزين المحلي:', error);
+            }
+        }
+
+        // التحقق من الطلبات الجديدة
         function checkNewOrders(oldOrders, newOrders) {
             if (!KitchenState.active || KitchenState.popupActive) return;
             
@@ -1353,6 +1384,7 @@
             const newOnes = newOrders.filter(o => !oldIds.has(o.orderId) && o.status === 'preparing');
             
             if (newOnes.length > 0) {
+                // نعرض أحدث طلب فقط (يمكن تعديلها لعرض آخر طلب)
                 const latestOrder = newOnes[newOnes.length - 1];
                 showNewOrderPopup(latestOrder);
             }
@@ -1441,7 +1473,7 @@
                 order.status = 'preparing';
                 updateStats();
                 filterOrders(KitchenState.currentStatus);
-                saveToLocalStorage();
+                saveToLocalStorage(KitchenState.orders);
                 
                 updateOrderStatus(orderId, 'preparing');
             }
@@ -1494,7 +1526,7 @@
             
             updateStats();
             filterOrders(KitchenState.currentStatus);
-            saveToLocalStorage();
+            saveToLocalStorage(KitchenState.orders);
             
             showNotification('🗑️ تم حذف الطلب', 'info');
         };
@@ -1518,7 +1550,7 @@
         }
 
         // ================================
-        // عرض الطلبات (معدل لعرض تفاصيل الأصناف)
+        // عرض الطلبات (باستخدام DocumentFragment لتحسين الأداء)
         // ================================
         function displayOrders(orders) {
             if (orders.length === 0) {
@@ -1532,7 +1564,10 @@
                 return;
             }
             
-            DOM.ordersContainer.innerHTML = orders.map(order => {
+            // استخدام fragment لتقليل إعادة الرسم
+            const fragment = document.createDocumentFragment();
+            
+            orders.forEach(order => {
                 const items = order.items || [];
                 const tableNumber = order.tableNumber || '?';
                 let timeStr = '-';
@@ -1548,86 +1583,83 @@
                 
                 const displayTotal = calculateOrderTotal(order).toFixed(2);
                 
-                return `
-                    <div class="order-card">
-                        <div class="order-header">
-                            <span class="order-id">${order.orderId || 'UNKNOWN'}</span>
-                            <span class="order-time">${timeStr}</span>
-                        </div>
-                        <div class="order-body">
-                            <div class="table-info">
-                                <div class="table-number-large">
-                                    <i class="fas fa-chair"></i>
-                                    ${tableNumber}
-                                </div>
+                // إنشاء عنصر البطاقة
+                const card = document.createElement('div');
+                card.className = 'order-card';
+                card.innerHTML = `
+                    <div class="order-header">
+                        <span class="order-id">${order.orderId || 'UNKNOWN'}</span>
+                        <span class="order-time">${timeStr}</span>
+                    </div>
+                    <div class="order-body">
+                        <div class="table-info">
+                            <div class="table-number-large">
+                                <i class="fas fa-chair"></i>
+                                ${tableNumber}
                             </div>
-                            
-                            <div class="order-items">
-                                ${items.map(item => {
-                                    const price = extractNumber(item.price);
-                                    const quantity = extractNumber(item.quantity);
-                                    const itemTotal = (price * quantity).toFixed(2);
-                                    return `
-                                        <div class="order-item">
-                                            <div class="item-details">
-                                                <span class="item-name">${item.name || 'صنف'}</span>
-                                                <div class="item-price-info">
-                                                    <span class="item-unit-price">${price.toFixed(2)} د.أ</span>
-                                                    <span class="item-separator">|</span>
-                                                    <span class="item-quantity">x${quantity}</span>
-                                                </div>
-                                            </div>
-                                            <span class="item-total">${itemTotal} د.أ</span>
-                                        </div>
-                                    `;
-                                }).join('')}
-                                
-                                <div class="order-total">
-                                    <span>المجموع</span>
-                                    <span>${displayTotal} د.أ</span>
-                                </div>
-                            </div>
-                            
-                            ${order.notes ? `
-                                <div class="order-notes">
-                                    <i class="fas fa-sticky-note"></i>
-                                    ${order.notes}
-                                </div>
-                            ` : ''}
-                            
-                            <span class="status-badge ${order.status === 'preparing' ? 'status-preparing' : 'status-completed'}">
-                                <i class="fas ${order.status === 'preparing' ? 'fa-fire' : 'fa-check-circle'}"></i>
-                                ${order.status === 'preparing' ? 'قيد التحضير' : 'مكتمل'}
-                            </span>
                         </div>
                         
-                        <div class="order-footer">
-                            ${order.status === 'preparing' ? `
-                                <button class="action-btn btn-done" onclick="window.completeOrder('${order.orderId}')">
-                                    <i class="fas fa-check"></i> تم التحضير
-                                </button>
-                            ` : ''}
-                            <button class="action-btn btn-print" onclick="window.printOrder('${order.orderId}')">
-                                <i class="fas fa-print"></i> طباعة
-                            </button>
-                            ${order.status === 'completed' ? `
-                                <button class="action-btn btn-delete" onclick="window.deleteOrder('${order.orderId}')">
-                                    <i class="fas fa-trash-alt"></i> حذف
-                                </button>
-                            ` : ''}
+                        <div class="order-items">
+                            ${items.map(item => {
+                                const price = extractNumber(item.price);
+                                const quantity = extractNumber(item.quantity);
+                                const itemTotal = (price * quantity).toFixed(2);
+                                return `
+                                    <div class="order-item">
+                                        <div class="item-details">
+                                            <span class="item-name">${item.name || 'صنف'}</span>
+                                            <div class="item-price-info">
+                                                <span class="item-unit-price">${price.toFixed(2)} د.أ</span>
+                                                <span class="item-separator">|</span>
+                                                <span class="item-quantity">x${quantity}</span>
+                                            </div>
+                                        </div>
+                                        <span class="item-total">${itemTotal} د.أ</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                            
+                            <div class="order-total">
+                                <span>المجموع</span>
+                                <span>${displayTotal} د.أ</span>
+                            </div>
                         </div>
+                        
+                        ${order.notes ? `
+                            <div class="order-notes">
+                                <i class="fas fa-sticky-note"></i>
+                                ${order.notes}
+                            </div>
+                        ` : ''}
+                        
+                        <span class="status-badge ${order.status === 'preparing' ? 'status-preparing' : 'status-completed'}">
+                            <i class="fas ${order.status === 'preparing' ? 'fa-fire' : 'fa-check-circle'}"></i>
+                            ${order.status === 'preparing' ? 'قيد التحضير' : 'مكتمل'}
+                        </span>
+                    </div>
+                    
+                    <div class="order-footer">
+                        ${order.status === 'preparing' ? `
+                            <button class="action-btn btn-done" onclick="window.completeOrder('${order.orderId}')">
+                                <i class="fas fa-check"></i> تم التحضير
+                            </button>
+                        ` : ''}
+                        <button class="action-btn btn-print" onclick="window.printOrder('${order.orderId}')">
+                            <i class="fas fa-print"></i> طباعة
+                        </button>
+                        ${order.status === 'completed' ? `
+                            <button class="action-btn btn-delete" onclick="window.deleteOrder('${order.orderId}')">
+                                <i class="fas fa-trash-alt"></i> حذف
+                            </button>
+                        ` : ''}
                     </div>
                 `;
-            }).join('');
-        }
-
-        function saveToLocalStorage() {
-            try {
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(KitchenState.orders));
-                localStorage.setItem('order_update_timestamp', Date.now().toString());
-            } catch (error) {
-                console.error('خطأ في الحفظ إلى التخزين المحلي:', error);
-            }
+                fragment.appendChild(card);
+            });
+            
+            // تحديث DOM دفعة واحدة
+            DOM.ordersContainer.innerHTML = '';
+            DOM.ordersContainer.appendChild(fragment);
         }
 
         window.completeOrder = function(orderId) {
@@ -1636,7 +1668,7 @@
                 order.status = 'completed';
                 updateStats();
                 filterOrders(KitchenState.currentStatus);
-                saveToLocalStorage();
+                saveToLocalStorage(KitchenState.orders);
                 
                 updateOrderStatus(orderId, 'completed');
             }
@@ -1645,7 +1677,7 @@
         };
 
         // ================================
-        // طباعة الطلب (معدلة لعرض التفاصيل الجديدة)
+        // طباعة الطلب
         // ================================
         window.printOrder = function(orderId) {
             const order = KitchenState.orders.find(o => o.orderId === orderId);
@@ -1755,7 +1787,7 @@
         });
 
         DOM.refreshBtn.addEventListener('click', () => {
-            loadOrders();
+            loadOrdersWithRetry();
             showNotification('🔄 جاري تحديث الطلبات', 'info');
         });
 
@@ -1774,7 +1806,7 @@
             
             KitchenState.refreshInterval = setInterval(() => {
                 if (KitchenState.active && !KitchenState.popupActive) {
-                    loadOrders();
+                    loadOrdersWithRetry();
                 }
             }, CONFIG.REFRESH_INTERVAL);
         }
@@ -1796,14 +1828,13 @@
         });
 
         window.addEventListener('storage', (e) => {
-            if (e.key === LOCAL_STORAGE_KEY && KitchenState.active) {
+            if (e.key === CONFIG.CACHE_KEY && KitchenState.active) {
                 console.log('تم تحديث الطلبات في نافذة أخرى');
-                loadOrders();
+                loadCachedOrders(); // إعادة تحميل من الكاش بدلاً من الطلب
             }
         });
 
-        // تشغيل الأوراق عند تحميل الصفحة
-        document.addEventListener('DOMContentLoaded', createLeaves);
+        // لا حاجة لإنشاء أوراق متساقطة، تم الإزالة
     </script>
 </body>
 </html>
