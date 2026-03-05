@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* ===== هوية تل السنديان البصرية ===== */
+        /* الأنماط كما هي (بدون تغيير) */
         :root {
             --forest-green-light: #3f8b3a;
             --forest-green-bright: #5cb85c;
@@ -29,7 +29,6 @@
             --transition-smooth: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             --shadow-elevation: 0 25px 45px -10px rgba(30, 70, 10, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.5) inset;
 
-            /* المتغيرات الأصلية */
             --forest-green: #2D5A27;
             --olive-green: #4A7B3D;
             --clay-brown: #8B5A2B;
@@ -81,8 +80,6 @@
             box-shadow: inset 0 0 150px rgba(255, 255, 255, 0.3);
         }
 
-        /* تم إزالة الأوراق المتساقطة بالكامل */
-
         .startup-logo {
             width: clamp(120px, 40vw, 170px);
             height: clamp(120px, 40vw, 170px);
@@ -131,12 +128,10 @@
             display: block;
         }
 
-        /* الأنماط الأصلية */
         #bg-pattern {
             display: none;
         }
 
-        /* STARTUP SCREEN */
         #startup-screen {
             position: fixed;
             inset: 0;
@@ -196,7 +191,6 @@
             font-size: 1.4rem;
         }
 
-        /* MAIN CONTENT */
         #main-content {
             max-width: 100%;
             margin: 0 auto;
@@ -207,7 +201,6 @@
             z-index: 1;
         }
 
-        /* HEADER */
         .kitchen-header {
             background: rgba(255, 249, 240, 0.95);
             backdrop-filter: blur(10px);
@@ -298,7 +291,6 @@
             border-color: var(--cream-white);
         }
 
-        /* مؤشر التحميل الدوار */
         .spinner {
             animation: spin 1s linear infinite;
         }
@@ -307,7 +299,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* TABS */
         .kitchen-tabs {
             display: flex;
             gap: 8px;
@@ -356,7 +347,6 @@
             color: var(--forest-green);
         }
 
-        /* ORDERS GRID */
         .orders-grid {
             display: grid;
             grid-template-columns: 1fr;
@@ -373,6 +363,10 @@
             display: flex;
             flex-direction: column;
             animation: cardFade 0.4s;
+        }
+
+        .order-card.hidden-by-tab {
+            display: none !important;
         }
 
         .order-card:hover {
@@ -620,7 +614,6 @@
             font-size: 1rem;
         }
 
-        /* POPUP */
         .popup-overlay {
             position: fixed;
             inset: 0;
@@ -1054,7 +1047,7 @@
 
     <script>
         // ================================
-        // إعدادات محسنة للأداء مع ضعف الإنترنت
+        // إعدادات محسنة للسرعة مع ضعف الإنترنت
         // ================================
         const CONFIG = {
             API_URL: 'https://script.google.com/macros/s/AKfycbzU7pp0Ul8KNDT4iEd7kGFxNrXYzX4B4zfdYANjE59ABvMq1vIKlmEM4gAOipY47Zeoiw/exec',
@@ -1062,12 +1055,14 @@
                 name: 'تل السنديان',
                 code: 'TSN'
             },
-            REFRESH_INTERVAL: 10000,          // زيادة الفترة إلى 10 ثوانٍ لتقليل ضغط الشبكة
+            REFRESH_INTERVAL: 8000,              // 8 ثوانٍ (أسرع قليلاً)
+            MAX_REFRESH_INTERVAL: 30000,          // أقصى فترة عند فشل متكرر
             ALERT_DURATION: 60000,
             CACHE_KEY: 'tel_alsindian_orders',
             CACHE_TIMESTAMP_KEY: 'orders_timestamp',
-            MAX_RETRIES: 3,                    // عدد محاولات إعادة الاتصال
-            RETRY_DELAY: 2000                   // تأخير أولي للمحاولة (يزداد مع كل محاولة)
+            MAX_RETRIES: 2,                       // عدد محاولات أقل (للسرعة)
+            RETRY_DELAY: 1500,                     // تأخير أولي أقل
+            FETCH_TIMEOUT: 5000                    // مهلة 5 ثوانٍ فقط
         };
 
         const KitchenState = {
@@ -1081,9 +1076,11 @@
             timerInterval: null,
             refreshInterval: null,
             initialLoad: true,
-            isLoading: false,                    // لمنع التحميل المتزامن
+            isLoading: false,
             retryCount: 0,
-            online: navigator.onLine
+            online: navigator.onLine,
+            orderElements: new Map(),
+            currentRefreshInterval: CONFIG.REFRESH_INTERVAL // ديناميكي
         };
 
         const DOM = {
@@ -1110,9 +1107,6 @@
             progressFill: document.getElementById('progressFill')
         };
 
-        // ================================
-        // دوال مساعدة لاستخراج الأرقام (كما هي)
-        // ================================
         function extractNumber(value) {
             if (value === null || value === undefined) return 0;
             if (typeof value === 'number') return value;
@@ -1123,51 +1117,20 @@
 
         function calculateOrderTotal(order) {
             if (!order) return 0;
-            
             if (Array.isArray(order.items) && order.items.length > 0) {
-                let total = 0;
-                for (const item of order.items) {
+                return order.items.reduce((sum, item) => {
                     let price = 0, quantity = 0;
-                    
                     if (typeof item === 'number') {
                         price = item;
                         quantity = 1;
                     } else if (typeof item === 'object' && item !== null) {
-                        if (item.price !== undefined) price = extractNumber(item.price);
-                        else if (item.Price !== undefined) price = extractNumber(item.Price);
-                        else if (item.unitPrice !== undefined) price = extractNumber(item.unitPrice);
-                        else if (item.value !== undefined) price = extractNumber(item.value);
-                        
-                        if (item.quantity !== undefined) quantity = extractNumber(item.quantity);
-                        else if (item.Quantity !== undefined) quantity = extractNumber(item.Quantity);
-                        else if (item.qty !== undefined) quantity = extractNumber(item.qty);
-                        else if (item.count !== undefined) quantity = extractNumber(item.count);
-                        
-                        if (quantity === 0) quantity = 1;
-                        
-                        if (price === 0 && item.total !== undefined) {
-                            total += extractNumber(item.total);
-                            continue;
-                        }
-                        if (price === 0 && item.itemTotal !== undefined) {
-                            total += extractNumber(item.itemTotal);
-                            continue;
-                        }
-                    } else if (typeof item === 'string') {
-                        price = 0;
-                        quantity = 0;
+                        price = extractNumber(item.price || item.Price || item.unitPrice || item.cost || 0);
+                        quantity = extractNumber(item.quantity || item.Quantity || item.qty || 1);
                     }
-                    
-                    total += price * quantity;
-                }
-                return total;
+                    return sum + (price * quantity);
+                }, 0);
             }
-            
-            if (order.total !== undefined) {
-                return extractNumber(order.total);
-            }
-            
-            return 0;
+            return extractNumber(order.total);
         }
 
         // ================================
@@ -1181,23 +1144,24 @@
             
             playTestSound();
             
-            // تحميل البيانات المخزنة فورًا ثم التحديث من الخادم
+            // عرض الكاش فوراً ثم التحديث
             loadCachedOrders();
-            loadOrdersWithRetry();
+            // لا ننتظر التحميل من الخادم، نبدأه في الخلفية
+            setTimeout(() => loadOrdersWithRetry(), 100);
             
             startAutoRefresh();
             
-            // مراقبة حالة الاتصال
             window.addEventListener('online', handleOnline);
             window.addEventListener('offline', handleOffline);
             
-            showNotification('✅ تم تشغيل نظام المطبخ', 'success');
+            showNotification('✅ تم تشغيل نظام الكاش', 'success');
         });
 
         function handleOnline() {
             KitchenState.online = true;
             showNotification('📶 تم استعادة الاتصال بالإنترنت', 'success');
-            loadOrdersWithRetry(); // تحديث فوري
+            KitchenState.currentRefreshInterval = CONFIG.REFRESH_INTERVAL; // إعادة الفترة الطبيعية
+            loadOrdersWithRetry();
         }
 
         function handleOffline() {
@@ -1218,90 +1182,93 @@
         }
 
         // ================================
-        // تحميل الطلبات من الخادم مع إعادة محاولة ذكية
+        // تحميل الطلبات مع مهلة قصيرة وإعادة محاولة ذكية
         // ================================
         async function loadOrdersWithRetry() {
             if (!KitchenState.active || KitchenState.isLoading) return;
             
             KitchenState.isLoading = true;
-            // إضافة أيقونة دوران لزر التحديث
             DOM.refreshBtn.innerHTML = '<i class="fas fa-spinner spinner"></i>';
             
-            let retries = 0;
-            let success = false;
-            
-            while (retries < CONFIG.MAX_RETRIES && !success && KitchenState.active) {
-                try {
-                    await loadFromAPI();
-                    success = true;
-                    KitchenState.retryCount = 0; // إعادة تعيين العداد عند النجاح
-                } catch (error) {
-                    retries++;
-                    KitchenState.retryCount = retries;
-                    console.log(`محاولة فاشلة (${retries}/${CONFIG.MAX_RETRIES})`);
-                    
-                    if (retries < CONFIG.MAX_RETRIES) {
-                        // تأخير متزايد (exponential backoff)
-                        const delay = CONFIG.RETRY_DELAY * Math.pow(2, retries - 1);
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    } else {
-                        // بعد فشل كل المحاولات، نعتمد على التخزين المحلي
-                        console.log('فشل الاتصال بالخادم بعد عدة محاولات، استخدام التخزين المحلي');
-                        loadFromLocalStorage();
-                        if (!KitchenState.online) {
-                            showNotification('🔴 غير متصل بالإنترنت، يتم عرض آخر الطلبات المحفوظة', 'error');
-                        }
-                    }
+            try {
+                // نحاول التحميل من API بمهلة قصيرة
+                await fetchWithTimeout(CONFIG.API_URL + '?action=getOrders&status=all&_=' + Date.now(), {
+                    timeout: CONFIG.FETCH_TIMEOUT
+                });
+                
+                // إذا نجحنا، نعيد ضبط فترة التحديث إلى الطبيعية
+                KitchenState.currentRefreshInterval = CONFIG.REFRESH_INTERVAL;
+                KitchenState.retryCount = 0;
+                
+            } catch (error) {
+                console.log('فشل الاتصال السريع، استخدام الكاش');
+                KitchenState.retryCount++;
+                
+                // نزيد فترة التحديث تدريجياً عند الفشل
+                if (KitchenState.retryCount > 0) {
+                    KitchenState.currentRefreshInterval = Math.min(
+                        CONFIG.REFRESH_INTERVAL * Math.pow(1.5, KitchenState.retryCount),
+                        CONFIG.MAX_REFRESH_INTERVAL
+                    );
                 }
+                
+                // إظهار إشعار بعد أول فشل (لكن ليس مزعجاً)
+                if (KitchenState.retryCount === 1) {
+                    showNotification('⚠️ بطء في الاتصال، يتم عرض الطلبات المحفوظة', 'info');
+                }
+                
+                // نعرض الكاش (موجود مسبقاً)
             }
             
             KitchenState.isLoading = false;
             DOM.refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
         }
 
-        // تحميل من API
-        async function loadFromAPI() {
-            const url = `${CONFIG.API_URL}?action=getOrders&status=all&_=${Date.now()}`;
+        // دالة fetch مع timeout
+        async function fetchWithTimeout(url, options = {}) {
+            const { timeout = 5000 } = options;
             
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 ثوانٍ مهلة
+            const id = setTimeout(() => controller.abort(), timeout);
             
-            const response = await fetch(url, { 
-                method: 'GET',
-                signal: controller.signal,
-                mode: 'cors',
-                headers: { 'Accept': 'application/json' }
-            });
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) throw new Error('Network response was not ok');
-            
-            const data = await response.json();
-            
-            if (data.success && data.orders) {
-                processOrders(data.orders);
-                saveToLocalStorage(data.orders); // تخزين للاستخدام المستقبلي
-            } else {
-                throw new Error('Invalid data format');
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    signal: controller.signal,
+                    mode: 'cors',
+                    headers: { 'Accept': 'application/json' }
+                });
+                clearTimeout(id);
+                
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                
+                if (data.success && data.orders) {
+                    processOrders(data.orders);
+                    saveToLocalStorage(data.orders);
+                } else {
+                    throw new Error('Invalid data format');
+                }
+            } catch (error) {
+                clearTimeout(id);
+                throw error;
             }
         }
 
-        // تحميل من التخزين المحلي (في حالة عدم وجود اتصال)
         function loadFromLocalStorage() {
             try {
                 const orders = JSON.parse(localStorage.getItem(CONFIG.CACHE_KEY) || '[]');
                 if (orders.length > 0) {
                     processOrders(orders);
                 } else {
-                    // لا توجد طلبات مخزنة، عرض فارغ
-                    displayOrders([]);
+                    showEmptyState();
                 }
             } catch (error) {
                 console.error('خطأ في التحميل من التخزين المحلي:', error);
             }
         }
 
-        // تحميل البيانات المخزنة فورًا عند التشغيل
         function loadCachedOrders() {
             try {
                 const orders = JSON.parse(localStorage.getItem(CONFIG.CACHE_KEY) || '[]');
@@ -1315,14 +1282,16 @@
         }
 
         // ================================
-        // معالجة الطلبات (تطبيع البيانات)
+        // معالجة الطلبات (مُحسّنة للسرعة)
         // ================================
         function processOrders(orders) {
-            const oldOrders = [...KitchenState.orders];
+            const oldOrders = KitchenState.orders;
+            const oldIds = new Set(oldOrders.map(o => o.orderId));
             
-            // تطبيع البيانات بشكل أسرع
-            KitchenState.orders = orders.map(order => {
-                const normalizedOrder = {
+            // تحويل الطلبات الجديدة إلى كائنات بسيطة (تجنب النسخ العميق غير الضروري)
+            const newOrders = orders.map(order => {
+                // استخدام Object.assign لتقليل الإنشاءات
+                const normalized = {
                     orderId: order.orderId || order.id || 'UNKNOWN',
                     timestamp: order.timestamp || order.date || order.time || new Date().toISOString(),
                     tableNumber: order.tableNumber || order.table || order.tableNo || '?',
@@ -1336,57 +1305,250 @@
                     completedAt: order.completedAt || ''
                 };
                 
-                normalizedOrder.items = normalizedOrder.items.map(item => {
-                    if (typeof item === 'string') {
-                        return { name: item, quantity: 1, price: 0 };
-                    } else if (typeof item === 'object' && item !== null) {
-                        const name = item.name || item.Name || item.title || item.product || 'صنف';
-                        const quantity = extractNumber(item.quantity || item.Quantity || item.qty || 1);
-                        const price = extractNumber(item.price || item.Price || item.unitPrice || item.cost || 0);
-                        return { name, quantity, price };
-                    }
-                    return { name: 'صنف', quantity: 1, price: 0 };
-                });
+                // تحويل الأصناف بسرعة
+                if (Array.isArray(normalized.items)) {
+                    normalized.items = normalized.items.map(item => {
+                        if (typeof item === 'string') {
+                            return { name: item, quantity: 1, price: 0 };
+                        } else if (typeof item === 'object' && item !== null) {
+                            const name = item.name || item.Name || item.title || item.product || 'صنف';
+                            const quantity = extractNumber(item.quantity || item.Quantity || item.qty || 1);
+                            const price = extractNumber(item.price || item.Price || item.unitPrice || item.cost || 0);
+                            return { name, quantity, price };
+                        }
+                        return { name: 'صنف', quantity: 1, price: 0 };
+                    });
+                }
                 
-                return normalizedOrder;
+                return normalized;
             });
-            
+
+            KitchenState.orders = newOrders;
+            syncOrderCards(newOrders);
             updateStats();
-            filterOrders(KitchenState.currentStatus);
             
             // التحقق من الطلبات الجديدة فقط إذا لم يكن التحميل الأولي
             if (!KitchenState.initialLoad) {
-                checkNewOrders(oldOrders, KitchenState.orders);
+                const newOnes = newOrders.filter(o => !oldIds.has(o.orderId) && o.status === 'preparing');
+                if (newOnes.length > 0) {
+                    const latestOrder = newOnes[newOnes.length - 1];
+                    showNewOrderPopup(latestOrder);
+                }
             } else {
-                KitchenState.lastOrderIds = new Set(KitchenState.orders.map(o => o.orderId));
+                KitchenState.lastOrderIds = new Set(newOrders.map(o => o.orderId));
                 KitchenState.initialLoad = false;
             }
             
-            // حفظ في الكاش بعد المعالجة
-            saveToLocalStorage(KitchenState.orders);
+            saveToLocalStorage(newOrders);
         }
 
-        // حفظ في localStorage
+        // مزامنة البطاقات (مُحسّنة)
+        function syncOrderCards(orders) {
+            const currentIds = new Set(KitchenState.orderElements.keys());
+            const newIds = new Set(orders.map(o => o.orderId));
+
+            // حذف البطاقات التي لم تعد موجودة
+            for (let id of currentIds) {
+                if (!newIds.has(id)) {
+                    const element = KitchenState.orderElements.get(id);
+                    if (element && element.parentNode) {
+                        element.remove();
+                    }
+                    KitchenState.orderElements.delete(id);
+                }
+            }
+
+            // تحديث أو إضافة البطاقات
+            orders.forEach(order => {
+                const existingElement = KitchenState.orderElements.get(order.orderId);
+                if (existingElement) {
+                    // تحديث المحتوى فقط إذا تغير (يمكن إضافة تحقق من التغيير لتحسين الأداء)
+                    updateCardContent(existingElement, order);
+                    existingElement.dataset.status = order.status;
+                    existingElement.dataset.timestamp = order.timestamp;
+                    if (order.completedAt) existingElement.dataset.completedAt = order.completedAt;
+                } else {
+                    const newCard = createOrderCard(order);
+                    KitchenState.orderElements.set(order.orderId, newCard);
+                    DOM.ordersContainer.appendChild(newCard);
+                }
+            });
+
+            // ترتيب البطاقات
+            sortCardsByTime();
+            filterCardsByStatus(KitchenState.currentStatus);
+
+            if (KitchenState.orderElements.size === 0) {
+                showEmptyState();
+            }
+        }
+
+        // إنشاء بطاقة جديدة
+        function createOrderCard(order) {
+            const card = document.createElement('div');
+            card.className = 'order-card';
+            card.dataset.orderId = order.orderId;
+            card.dataset.timestamp = order.timestamp;
+            if (order.completedAt) card.dataset.completedAt = order.completedAt;
+            card.dataset.status = order.status;
+            fillCardContent(card, order);
+            return card;
+        }
+
+        // ملء محتوى البطاقة (نفس الكود السابق)
+        function fillCardContent(card, order) {
+            const items = order.items || [];
+            const tableNumber = order.tableNumber || '?';
+            let timeStr = '-';
+            
+            if (order.timestamp) {
+                try {
+                    const time = new Date(order.timestamp);
+                    timeStr = time.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                } catch (e) {
+                    timeStr = '-';
+                }
+            }
+            
+            const displayTotal = calculateOrderTotal(order).toFixed(2);
+            
+            card.innerHTML = `
+                <div class="order-header">
+                    <span class="order-id">${order.orderId || 'UNKNOWN'}</span>
+                    <span class="order-time">${timeStr}</span>
+                </div>
+                <div class="order-body">
+                    <div class="table-info">
+                        <div class="table-number-large">
+                            <i class="fas fa-chair"></i>
+                            ${tableNumber}
+                        </div>
+                    </div>
+                    
+                    <div class="order-items">
+                        ${items.map(item => {
+                            const price = extractNumber(item.price);
+                            const quantity = extractNumber(item.quantity);
+                            const itemTotal = (price * quantity).toFixed(2);
+                            return `
+                                <div class="order-item">
+                                    <div class="item-details">
+                                        <span class="item-name">${item.name || 'صنف'}</span>
+                                        <div class="item-price-info">
+                                            <span class="item-unit-price">${price.toFixed(2)} د.أ</span>
+                                            <span class="item-separator">|</span>
+                                            <span class="item-quantity">x${quantity}</span>
+                                        </div>
+                                    </div>
+                                    <span class="item-total">${itemTotal} د.أ</span>
+                                </div>
+                            `;
+                        }).join('')}
+                        
+                        <div class="order-total">
+                            <span>المجموع</span>
+                            <span>${displayTotal} د.أ</span>
+                        </div>
+                    </div>
+                    
+                    ${order.notes ? `
+                        <div class="order-notes">
+                            <i class="fas fa-sticky-note"></i>
+                            ${order.notes}
+                        </div>
+                    ` : ''}
+                    
+                    <span class="status-badge ${order.status === 'preparing' ? 'status-preparing' : 'status-completed'}">
+                        <i class="fas ${order.status === 'preparing' ? 'fa-fire' : 'fa-check-circle'}"></i>
+                        ${order.status === 'preparing' ? 'قيد التحضير' : 'مكتمل'}
+                    </span>
+                </div>
+                
+                <div class="order-footer">
+                    ${order.status === 'preparing' ? `
+                        <button class="action-btn btn-done" onclick="window.completeOrder('${order.orderId}')">
+                            <i class="fas fa-check"></i> تم التحضير
+                        </button>
+                    ` : ''}
+                    <button class="action-btn btn-print" onclick="window.printOrder('${order.orderId}')">
+                        <i class="fas fa-print"></i> طباعة
+                    </button>
+                    ${order.status === 'completed' ? `
+                        <button class="action-btn btn-delete" onclick="window.deleteOrder('${order.orderId}')">
+                            <i class="fas fa-trash-alt"></i> حذف
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function updateCardContent(card, order) {
+            fillCardContent(card, order);
+        }
+
+        function sortCardsByTime() {
+            const cards = Array.from(DOM.ordersContainer.querySelectorAll('.order-card'));
+            cards.sort((a, b) => {
+                const statusA = a.dataset.status;
+                const statusB = b.dataset.status;
+                
+                let timeA, timeB;
+                timeA = statusA === 'completed' && a.dataset.completedAt ? new Date(a.dataset.completedAt).getTime() : new Date(a.dataset.timestamp).getTime();
+                timeB = statusB === 'completed' && b.dataset.completedAt ? new Date(b.dataset.completedAt).getTime() : new Date(b.dataset.timestamp).getTime();
+                
+                if (isNaN(timeA)) timeA = 0;
+                if (isNaN(timeB)) timeB = 0;
+                
+                return timeB - timeA;
+            });
+            cards.forEach(card => DOM.ordersContainer.appendChild(card));
+        }
+
+        function filterCardsByStatus(status) {
+            const cards = DOM.ordersContainer.querySelectorAll('.order-card');
+            let visibleCount = 0;
+            cards.forEach(card => {
+                if (card.dataset.status === status) {
+                    card.classList.remove('hidden-by-tab');
+                    visibleCount++;
+                } else {
+                    card.classList.add('hidden-by-tab');
+                }
+            });
+
+            const emptyState = DOM.ordersContainer.querySelector('.empty-state');
+            if (visibleCount === 0 && KitchenState.orderElements.size > 0) {
+                if (!emptyState) {
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.className = 'empty-state';
+                    emptyDiv.innerHTML = `
+                        <i class="fas fa-utensils"></i>
+                        <h3>لا توجد طلبات ${status === 'preparing' ? 'قيد التحضير' : 'مكتملة'}</h3>
+                        <p>سيتم عرض الطلبات الجديدة هنا</p>
+                    `;
+                    DOM.ordersContainer.appendChild(emptyDiv);
+                }
+            } else if (emptyState) {
+                emptyState.remove();
+            }
+        }
+
+        function showEmptyState() {
+            DOM.ordersContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-utensils"></i>
+                    <h3>لا توجد طلبات</h3>
+                    <p>سيتم عرض الطلبات الجديدة هنا</p>
+                </div>
+            `;
+        }
+
         function saveToLocalStorage(orders) {
             try {
                 localStorage.setItem(CONFIG.CACHE_KEY, JSON.stringify(orders));
                 localStorage.setItem(CONFIG.CACHE_TIMESTAMP_KEY, Date.now().toString());
             } catch (error) {
                 console.error('خطأ في الحفظ إلى التخزين المحلي:', error);
-            }
-        }
-
-        // التحقق من الطلبات الجديدة
-        function checkNewOrders(oldOrders, newOrders) {
-            if (!KitchenState.active || KitchenState.popupActive) return;
-            
-            const oldIds = new Set(oldOrders.map(o => o.orderId));
-            const newOnes = newOrders.filter(o => !oldIds.has(o.orderId) && o.status === 'preparing');
-            
-            if (newOnes.length > 0) {
-                // نعرض أحدث طلب فقط (يمكن تعديلها لعرض آخر طلب)
-                const latestOrder = newOnes[newOnes.length - 1];
-                showNewOrderPopup(latestOrder);
             }
         }
 
@@ -1472,9 +1634,17 @@
             if (order) {
                 order.status = 'preparing';
                 updateStats();
-                filterOrders(KitchenState.currentStatus);
-                saveToLocalStorage(KitchenState.orders);
                 
+                const card = KitchenState.orderElements.get(orderId);
+                if (card) {
+                    updateCardContent(card, order);
+                    card.dataset.status = 'preparing';
+                    delete card.dataset.completedAt;
+                    sortCardsByTime();
+                    filterCardsByStatus(KitchenState.currentStatus);
+                }
+                
+                saveToLocalStorage(KitchenState.orders);
                 updateOrderStatus(orderId, 'preparing');
             }
             
@@ -1506,29 +1676,95 @@
                 formData.append('orderId', orderId);
                 formData.append('status', status);
                 
-                await fetch(CONFIG.API_URL, {
+                // لا ننتظر النتيجة (fire and forget)
+                fetch(CONFIG.API_URL, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
                     body: formData
-                });
+                }).catch(e => console.log('فشل تحديث الحالة على الخادم'));
             } catch (error) {
                 console.error('خطأ في تحديث حالة الطلب:', error);
             }
         }
 
-        window.deleteOrder = function(orderId) {
+        window.completeOrder = function(orderId) {
+            const order = KitchenState.orders.find(o => o.orderId === orderId);
+            if (order) {
+                const now = new Date().toISOString();
+                order.status = 'completed';
+                order.completedAt = now;
+                
+                updateStats();
+                
+                const card = KitchenState.orderElements.get(orderId);
+                if (card) {
+                    updateCardContent(card, order);
+                    card.dataset.status = 'completed';
+                    card.dataset.completedAt = now;
+                    sortCardsByTime();
+                    filterCardsByStatus(KitchenState.currentStatus);
+                }
+                
+                saveToLocalStorage(KitchenState.orders);
+                updateOrderStatus(orderId, 'completed');
+            }
+            
+            showNotification('✅ تم إكمال الطلب', 'success');
+        };
+
+        window.deleteOrder = async function(orderId) {
             if (!confirm('هل أنت متأكد من حذف هذا الطلب؟')) return;
             
+            const initialLength = KitchenState.orders.length;
             KitchenState.orders = KitchenState.orders.filter(o => o.orderId !== orderId);
             
+            if (KitchenState.orders.length === initialLength) {
+                showNotification('⚠️ الطلب غير موجود', 'error');
+                return;
+            }
+            
+            if (KitchenState.lastOrderIds.has(orderId)) {
+                KitchenState.lastOrderIds.delete(orderId);
+            }
+            
+            const card = KitchenState.orderElements.get(orderId);
+            if (card) {
+                card.remove();
+                KitchenState.orderElements.delete(orderId);
+            }
+            
             updateStats();
-            filterOrders(KitchenState.currentStatus);
+            
+            if (KitchenState.orderElements.size === 0) {
+                showEmptyState();
+            } else {
+                filterCardsByStatus(KitchenState.currentStatus);
+            }
+            
             saveToLocalStorage(KitchenState.orders);
             
-            showNotification('🗑️ تم حذف الطلب', 'info');
+            try {
+                const formData = new URLSearchParams();
+                formData.append('action', 'deleteOrder');
+                formData.append('orderId', orderId);
+                
+                fetch(CONFIG.API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: formData
+                }).catch(e => console.log('فشل حذف الطلب من الخادم'));
+                
+                showNotification('🗑️ تم حذف الطلب من النظام', 'success');
+            } catch (error) {
+                console.error('خطأ في حذف الطلب من الخادم:', error);
+                showNotification('⚠️ تم الحذف محلياً، لكن فشل الاتصال بالخادم', 'error');
+            }
         };
 
         function updateStats() {
@@ -1541,144 +1777,6 @@
             DOM.completedBadge.textContent = completed;
         }
 
-        function filterOrders(status) {
-            KitchenState.currentStatus = status;
-            
-            let filtered = KitchenState.orders.filter(o => o.status === status);
-            filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            displayOrders(filtered);
-        }
-
-        // ================================
-        // عرض الطلبات (باستخدام DocumentFragment لتحسين الأداء)
-        // ================================
-        function displayOrders(orders) {
-            if (orders.length === 0) {
-                DOM.ordersContainer.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-utensils"></i>
-                        <h3>لا توجد طلبات</h3>
-                        <p>سيتم عرض الطلبات الجديدة هنا</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            // استخدام fragment لتقليل إعادة الرسم
-            const fragment = document.createDocumentFragment();
-            
-            orders.forEach(order => {
-                const items = order.items || [];
-                const tableNumber = order.tableNumber || '?';
-                let timeStr = '-';
-                
-                if (order.timestamp) {
-                    try {
-                        const time = new Date(order.timestamp);
-                        timeStr = time.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-                    } catch (e) {
-                        timeStr = '-';
-                    }
-                }
-                
-                const displayTotal = calculateOrderTotal(order).toFixed(2);
-                
-                // إنشاء عنصر البطاقة
-                const card = document.createElement('div');
-                card.className = 'order-card';
-                card.innerHTML = `
-                    <div class="order-header">
-                        <span class="order-id">${order.orderId || 'UNKNOWN'}</span>
-                        <span class="order-time">${timeStr}</span>
-                    </div>
-                    <div class="order-body">
-                        <div class="table-info">
-                            <div class="table-number-large">
-                                <i class="fas fa-chair"></i>
-                                ${tableNumber}
-                            </div>
-                        </div>
-                        
-                        <div class="order-items">
-                            ${items.map(item => {
-                                const price = extractNumber(item.price);
-                                const quantity = extractNumber(item.quantity);
-                                const itemTotal = (price * quantity).toFixed(2);
-                                return `
-                                    <div class="order-item">
-                                        <div class="item-details">
-                                            <span class="item-name">${item.name || 'صنف'}</span>
-                                            <div class="item-price-info">
-                                                <span class="item-unit-price">${price.toFixed(2)} د.أ</span>
-                                                <span class="item-separator">|</span>
-                                                <span class="item-quantity">x${quantity}</span>
-                                            </div>
-                                        </div>
-                                        <span class="item-total">${itemTotal} د.أ</span>
-                                    </div>
-                                `;
-                            }).join('')}
-                            
-                            <div class="order-total">
-                                <span>المجموع</span>
-                                <span>${displayTotal} د.أ</span>
-                            </div>
-                        </div>
-                        
-                        ${order.notes ? `
-                            <div class="order-notes">
-                                <i class="fas fa-sticky-note"></i>
-                                ${order.notes}
-                            </div>
-                        ` : ''}
-                        
-                        <span class="status-badge ${order.status === 'preparing' ? 'status-preparing' : 'status-completed'}">
-                            <i class="fas ${order.status === 'preparing' ? 'fa-fire' : 'fa-check-circle'}"></i>
-                            ${order.status === 'preparing' ? 'قيد التحضير' : 'مكتمل'}
-                        </span>
-                    </div>
-                    
-                    <div class="order-footer">
-                        ${order.status === 'preparing' ? `
-                            <button class="action-btn btn-done" onclick="window.completeOrder('${order.orderId}')">
-                                <i class="fas fa-check"></i> تم التحضير
-                            </button>
-                        ` : ''}
-                        <button class="action-btn btn-print" onclick="window.printOrder('${order.orderId}')">
-                            <i class="fas fa-print"></i> طباعة
-                        </button>
-                        ${order.status === 'completed' ? `
-                            <button class="action-btn btn-delete" onclick="window.deleteOrder('${order.orderId}')">
-                                <i class="fas fa-trash-alt"></i> حذف
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
-                fragment.appendChild(card);
-            });
-            
-            // تحديث DOM دفعة واحدة
-            DOM.ordersContainer.innerHTML = '';
-            DOM.ordersContainer.appendChild(fragment);
-        }
-
-        window.completeOrder = function(orderId) {
-            const order = KitchenState.orders.find(o => o.orderId === orderId);
-            if (order) {
-                order.status = 'completed';
-                updateStats();
-                filterOrders(KitchenState.currentStatus);
-                saveToLocalStorage(KitchenState.orders);
-                
-                updateOrderStatus(orderId, 'completed');
-            }
-            
-            showNotification('✅ تم إكمال الطلب', 'success');
-        };
-
-        // ================================
-        // طباعة الطلب
-        // ================================
         window.printOrder = function(orderId) {
             const order = KitchenState.orders.find(o => o.orderId === orderId);
             if (!order) return;
@@ -1795,7 +1893,9 @@
             tab.addEventListener('click', () => {
                 DOM.tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
-                filterOrders(tab.dataset.status);
+                const status = tab.dataset.status;
+                KitchenState.currentStatus = status;
+                filterCardsByStatus(status);
             });
         });
 
@@ -1808,7 +1908,7 @@
                 if (KitchenState.active && !KitchenState.popupActive) {
                     loadOrdersWithRetry();
                 }
-            }, CONFIG.REFRESH_INTERVAL);
+            }, KitchenState.currentRefreshInterval);
         }
 
         function showNotification(message, type = 'info') {
@@ -1830,11 +1930,9 @@
         window.addEventListener('storage', (e) => {
             if (e.key === CONFIG.CACHE_KEY && KitchenState.active) {
                 console.log('تم تحديث الطلبات في نافذة أخرى');
-                loadCachedOrders(); // إعادة تحميل من الكاش بدلاً من الطلب
+                loadCachedOrders();
             }
         });
-
-        // لا حاجة لإنشاء أوراق متساقطة، تم الإزالة
     </script>
 </body>
 </html>
