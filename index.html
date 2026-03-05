@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>👨‍🍳 شاشة الكاشير • تل السنديان</title>
+    <title>👨‍🍳 شاشة الكاشير • تل السنديان </title>
     <link rel="icon" href="https://iili.io/qfhk5Pt.png">
     <link rel="apple-touch-icon" href="https://iili.io/qfhk5Pt.png">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* الأنماط كما هي (بدون تغيير) */
+        /* جميع الأنماط كما هي (بدون تغيير) */
         :root {
             --forest-green-light: #3f8b3a;
             --forest-green-bright: #5cb85c;
@@ -921,7 +921,6 @@
     </style>
 </head>
 <body>
-    <!-- خلفية الغابة (بدون أوراق) -->
     <div id="animated-forest-bg"></div>
 
     <div id="startup-screen">
@@ -981,7 +980,6 @@
         <div id="ordersContainer" class="orders-grid"></div>
     </div>
 
-    <!-- New Order Popup -->
     <div id="popupOverlay" class="popup-overlay">
         <div class="order-popup">
             <div class="popup-header">
@@ -1046,25 +1044,94 @@
     </audio>
 
     <script>
-        // ================================
-        // إعدادات محسنة للسرعة مع ضعف الإنترنت
-        // ================================
+        // ======================== الإعدادات المحسنة (تحديث كل 5 ثوان) ========================
         const CONFIG = {
             API_URL: 'https://script.google.com/macros/s/AKfycbzU7pp0Ul8KNDT4iEd7kGFxNrXYzX4B4zfdYANjE59ABvMq1vIKlmEM4gAOipY47Zeoiw/exec',
-            RESTAURANT: {
-                name: 'تل السنديان',
-                code: 'TSN'
-            },
-            REFRESH_INTERVAL: 8000,              // 8 ثوانٍ (أسرع قليلاً)
-            MAX_REFRESH_INTERVAL: 30000,          // أقصى فترة عند فشل متكرر
-            ALERT_DURATION: 60000,
-            CACHE_KEY: 'tel_alsindian_orders',
-            CACHE_TIMESTAMP_KEY: 'orders_timestamp',
-            MAX_RETRIES: 2,                       // عدد محاولات أقل (للسرعة)
-            RETRY_DELAY: 1500,                     // تأخير أولي أقل
-            FETCH_TIMEOUT: 5000                    // مهلة 5 ثوانٍ فقط
+            RESTAURANT: { name: 'تل السنديان', code: 'TSN' },
+            REFRESH_INTERVAL: 5000,               // 5 ثوانٍ كما طلبت
+            MAX_REFRESH_INTERVAL: 60000,           // دقيقة كحد أقصى عند الفشل
+            CLEANUP_INTERVAL: 24 * 60 * 60 * 1000, // مرة يومياً (24 ساعة)
+            OLD_DAYS_THRESHOLD: 7,                  // حذف المكتملة بعد 7 أيام
+            FETCH_TIMEOUT: 8000,
+            MAX_RETRIES: 3,
+            CACHE_KEY: 'tel_alsindian_orders_backup', // احتياطي للـ localStorage
         };
 
+        // ======================== IndexedDB Wrapper ========================
+        const DB = {
+            name: 'TelAlSindianDB',
+            version: 1,
+            store: 'orders',
+            db: null,
+
+            async init() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.name, this.version);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        this.db = request.result;
+                        resolve();
+                    };
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains(this.store)) {
+                            const store = db.createObjectStore(this.store, { keyPath: 'orderId' });
+                            store.createIndex('status', 'status', { unique: false });
+                            store.createIndex('timestamp', 'timestamp', { unique: false });
+                            store.createIndex('completedAt', 'completedAt', { unique: false });
+                        }
+                    };
+                });
+            },
+
+            async getAllOrders() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(this.store, 'readonly');
+                    const store = tx.objectStore(this.store);
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            },
+
+            async putOrders(orders) {
+                const tx = this.db.transaction(this.store, 'readwrite');
+                const store = tx.objectStore(this.store);
+                for (const order of orders) {
+                    store.put(order);
+                }
+                return tx.complete;
+            },
+
+            async deleteOrder(orderId) {
+                const tx = this.db.transaction(this.store, 'readwrite');
+                const store = tx.objectStore(this.store);
+                store.delete(orderId);
+                return tx.complete;
+            },
+
+            async clearOldOrders(days = 7) {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() - days);
+                const tx = this.db.transaction(this.store, 'readwrite');
+                const store = tx.objectStore(this.store);
+                const index = store.index('completedAt');
+                const range = IDBKeyRange.upperBound(cutoff.toISOString());
+                const request = index.openCursor(range);
+                request.onsuccess = (event) => {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        if (cursor.value.status === 'completed') {
+                            cursor.delete();
+                        }
+                        cursor.continue();
+                    }
+                };
+                return tx.complete;
+            }
+        };
+
+        // ======================== حالة التطبيق ========================
         const KitchenState = {
             active: false,
             soundEnabled: true,
@@ -1080,7 +1147,7 @@
             retryCount: 0,
             online: navigator.onLine,
             orderElements: new Map(),
-            currentRefreshInterval: CONFIG.REFRESH_INTERVAL // ديناميكي
+            currentRefreshInterval: CONFIG.REFRESH_INTERVAL
         };
 
         const DOM = {
@@ -1107,6 +1174,7 @@
             progressFill: document.getElementById('progressFill')
         };
 
+        // ======================== دوال مساعدة ========================
         function extractNumber(value) {
             if (value === null || value === undefined) return 0;
             if (typeof value === 'number') return value;
@@ -1133,221 +1201,65 @@
             return extractNumber(order.total);
         }
 
-        // ================================
-        // بدء التشغيل
-        // ================================
-        DOM.activateBtn.addEventListener('click', () => {
-            KitchenState.active = true;
-            KitchenState.initialLoad = true;
-            DOM.startup.classList.add('hidden');
-            DOM.mainContent.style.opacity = '1';
-            
-            playTestSound();
-            
-            // عرض الكاش فوراً ثم التحديث
-            loadCachedOrders();
-            // لا ننتظر التحميل من الخادم، نبدأه في الخلفية
-            setTimeout(() => loadOrdersWithRetry(), 100);
-            
-            startAutoRefresh();
-            
-            window.addEventListener('online', handleOnline);
-            window.addEventListener('offline', handleOffline);
-            
-            showNotification('✅ تم تشغيل نظام الكاش', 'success');
-        });
-
-        function handleOnline() {
-            KitchenState.online = true;
-            showNotification('📶 تم استعادة الاتصال بالإنترنت', 'success');
-            KitchenState.currentRefreshInterval = CONFIG.REFRESH_INTERVAL; // إعادة الفترة الطبيعية
-            loadOrdersWithRetry();
+        function normalizeOrder(order) {
+            return {
+                orderId: order.orderId || order.id || 'UNKNOWN',
+                timestamp: order.timestamp || order.date || order.time || new Date().toISOString(),
+                tableNumber: order.tableNumber || order.table || order.tableNo || '?',
+                notes: order.notes || order.specialNotes || '',
+                total: order.total || order.orderTotal || '0',
+                itemsCount: order.itemsCount || order.itemCount || (order.items ? order.items.length : 0),
+                items: Array.isArray(order.items) ? order.items.map(item => {
+                    if (typeof item === 'string') {
+                        return { name: item, quantity: 1, price: 0 };
+                    } else if (typeof item === 'object' && item !== null) {
+                        const name = item.name || item.Name || item.title || item.product || 'صنف';
+                        const quantity = extractNumber(item.quantity || item.Quantity || item.qty || 1);
+                        const price = extractNumber(item.price || item.Price || item.unitPrice || item.cost || 0);
+                        return { name, quantity, price };
+                    }
+                    return { name: 'صنف', quantity: 1, price: 0 };
+                }) : [],
+                source: order.source || 'web',
+                status: order.status || 'preparing',
+                preparedAt: order.preparedAt || '',
+                completedAt: order.completedAt || ''
+            };
         }
 
-        function handleOffline() {
-            KitchenState.online = false;
-            showNotification('⚠️ انقطع الاتصال بالإنترنت، يتم عرض الطلبات المخزنة', 'error');
-        }
-
-        function playTestSound() {
-            if (DOM.notificationSound && KitchenState.soundEnabled) {
-                DOM.notificationSound.volume = 0.3;
-                DOM.notificationSound.play()
-                    .then(() => {
-                        DOM.notificationSound.pause();
-                        DOM.notificationSound.currentTime = 0;
-                    })
-                    .catch(e => console.log('تحتاج النقر أولاً لتشغيل الصوت'));
-            }
-        }
-
-        // ================================
-        // تحميل الطلبات مع مهلة قصيرة وإعادة محاولة ذكية
-        // ================================
-        async function loadOrdersWithRetry() {
-            if (!KitchenState.active || KitchenState.isLoading) return;
-            
-            KitchenState.isLoading = true;
-            DOM.refreshBtn.innerHTML = '<i class="fas fa-spinner spinner"></i>';
-            
-            try {
-                // نحاول التحميل من API بمهلة قصيرة
-                await fetchWithTimeout(CONFIG.API_URL + '?action=getOrders&status=all&_=' + Date.now(), {
-                    timeout: CONFIG.FETCH_TIMEOUT
-                });
-                
-                // إذا نجحنا، نعيد ضبط فترة التحديث إلى الطبيعية
-                KitchenState.currentRefreshInterval = CONFIG.REFRESH_INTERVAL;
-                KitchenState.retryCount = 0;
-                
-            } catch (error) {
-                console.log('فشل الاتصال السريع، استخدام الكاش');
-                KitchenState.retryCount++;
-                
-                // نزيد فترة التحديث تدريجياً عند الفشل
-                if (KitchenState.retryCount > 0) {
-                    KitchenState.currentRefreshInterval = Math.min(
-                        CONFIG.REFRESH_INTERVAL * Math.pow(1.5, KitchenState.retryCount),
-                        CONFIG.MAX_REFRESH_INTERVAL
-                    );
-                }
-                
-                // إظهار إشعار بعد أول فشل (لكن ليس مزعجاً)
-                if (KitchenState.retryCount === 1) {
-                    showNotification('⚠️ بطء في الاتصال، يتم عرض الطلبات المحفوظة', 'info');
-                }
-                
-                // نعرض الكاش (موجود مسبقاً)
-            }
-            
-            KitchenState.isLoading = false;
-            DOM.refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
-        }
-
-        // دالة fetch مع timeout
-        async function fetchWithTimeout(url, options = {}) {
-            const { timeout = 5000 } = options;
-            
-            const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), timeout);
-            
-            try {
-                const response = await fetch(url, {
-                    ...options,
-                    signal: controller.signal,
-                    mode: 'cors',
-                    headers: { 'Accept': 'application/json' }
-                });
-                clearTimeout(id);
-                
-                if (!response.ok) throw new Error('Network response was not ok');
-                
-                const data = await response.json();
-                
-                if (data.success && data.orders) {
-                    processOrders(data.orders);
-                    saveToLocalStorage(data.orders);
-                } else {
-                    throw new Error('Invalid data format');
-                }
-            } catch (error) {
-                clearTimeout(id);
-                throw error;
-            }
-        }
-
-        function loadFromLocalStorage() {
-            try {
-                const orders = JSON.parse(localStorage.getItem(CONFIG.CACHE_KEY) || '[]');
-                if (orders.length > 0) {
-                    processOrders(orders);
-                } else {
-                    showEmptyState();
-                }
-            } catch (error) {
-                console.error('خطأ في التحميل من التخزين المحلي:', error);
-            }
-        }
-
-        function loadCachedOrders() {
-            try {
-                const orders = JSON.parse(localStorage.getItem(CONFIG.CACHE_KEY) || '[]');
-                if (orders.length > 0) {
-                    processOrders(orders);
-                    showNotification('📦 تم تحميل الطلبات من الذاكرة المحلية', 'info');
-                }
-            } catch (error) {
-                console.error('خطأ في تحميل الكاش:', error);
-            }
-        }
-
-        // ================================
-        // معالجة الطلبات (مُحسّنة للسرعة)
-        // ================================
-        function processOrders(orders) {
+        // ======================== معالجة الطلبات والعرض ========================
+        async function processOrders(orders, options = {}) {
             const oldOrders = KitchenState.orders;
             const oldIds = new Set(oldOrders.map(o => o.orderId));
             
-            // تحويل الطلبات الجديدة إلى كائنات بسيطة (تجنب النسخ العميق غير الضروري)
-            const newOrders = orders.map(order => {
-                // استخدام Object.assign لتقليل الإنشاءات
-                const normalized = {
-                    orderId: order.orderId || order.id || 'UNKNOWN',
-                    timestamp: order.timestamp || order.date || order.time || new Date().toISOString(),
-                    tableNumber: order.tableNumber || order.table || order.tableNo || '?',
-                    notes: order.notes || order.specialNotes || '',
-                    total: order.total || order.orderTotal || '0',
-                    itemsCount: order.itemsCount || order.itemCount || (order.items ? order.items.length : 0),
-                    items: Array.isArray(order.items) ? order.items : [],
-                    source: order.source || 'web',
-                    status: order.status || 'preparing',
-                    preparedAt: order.preparedAt || '',
-                    completedAt: order.completedAt || ''
-                };
-                
-                // تحويل الأصناف بسرعة
-                if (Array.isArray(normalized.items)) {
-                    normalized.items = normalized.items.map(item => {
-                        if (typeof item === 'string') {
-                            return { name: item, quantity: 1, price: 0 };
-                        } else if (typeof item === 'object' && item !== null) {
-                            const name = item.name || item.Name || item.title || item.product || 'صنف';
-                            const quantity = extractNumber(item.quantity || item.Quantity || item.qty || 1);
-                            const price = extractNumber(item.price || item.Price || item.unitPrice || item.cost || 0);
-                            return { name, quantity, price };
-                        }
-                        return { name: 'صنف', quantity: 1, price: 0 };
-                    });
-                }
-                
-                return normalized;
-            });
-
+            const newOrders = orders.map(normalizeOrder);
+            
             KitchenState.orders = newOrders;
             syncOrderCards(newOrders);
             updateStats();
             
-            // التحقق من الطلبات الجديدة فقط إذا لم يكن التحميل الأولي
-            if (!KitchenState.initialLoad) {
+            if (!options.initialLoad) {
                 const newOnes = newOrders.filter(o => !oldIds.has(o.orderId) && o.status === 'preparing');
                 if (newOnes.length > 0) {
-                    const latestOrder = newOnes[newOnes.length - 1];
-                    showNewOrderPopup(latestOrder);
+                    showNewOrderPopup(newOnes[newOnes.length - 1]);
                 }
             } else {
-                KitchenState.lastOrderIds = new Set(newOrders.map(o => o.orderId));
                 KitchenState.initialLoad = false;
             }
             
-            saveToLocalStorage(newOrders);
+            // حفظ في IndexedDB
+            try {
+                await DB.putOrders(newOrders);
+            } catch (e) {
+                console.warn('فشل حفظ في IndexedDB، استخدام localStorage', e);
+                saveToLocalStorage(newOrders);
+            }
         }
 
-        // مزامنة البطاقات (مُحسّنة)
         function syncOrderCards(orders) {
             const currentIds = new Set(KitchenState.orderElements.keys());
             const newIds = new Set(orders.map(o => o.orderId));
 
-            // حذف البطاقات التي لم تعد موجودة
             for (let id of currentIds) {
                 if (!newIds.has(id)) {
                     const element = KitchenState.orderElements.get(id);
@@ -1358,11 +1270,9 @@
                 }
             }
 
-            // تحديث أو إضافة البطاقات
             orders.forEach(order => {
                 const existingElement = KitchenState.orderElements.get(order.orderId);
                 if (existingElement) {
-                    // تحديث المحتوى فقط إذا تغير (يمكن إضافة تحقق من التغيير لتحسين الأداء)
                     updateCardContent(existingElement, order);
                     existingElement.dataset.status = order.status;
                     existingElement.dataset.timestamp = order.timestamp;
@@ -1374,7 +1284,6 @@
                 }
             });
 
-            // ترتيب البطاقات
             sortCardsByTime();
             filterCardsByStatus(KitchenState.currentStatus);
 
@@ -1383,7 +1292,6 @@
             }
         }
 
-        // إنشاء بطاقة جديدة
         function createOrderCard(order) {
             const card = document.createElement('div');
             card.className = 'order-card';
@@ -1395,7 +1303,6 @@
             return card;
         }
 
-        // ملء محتوى البطاقة (نفس الكود السابق)
         function fillCardContent(card, order) {
             const items = order.items || [];
             const tableNumber = order.tableNumber || '?';
@@ -1543,15 +1450,123 @@
             `;
         }
 
+        function updateStats() {
+            const preparing = KitchenState.orders.filter(o => o.status === 'preparing').length;
+            const completed = KitchenState.orders.filter(o => o.status === 'completed').length;
+            
+            DOM.preparingCount.textContent = preparing;
+            DOM.completedCount.textContent = completed;
+            DOM.preparingBadge.textContent = preparing;
+            DOM.completedBadge.textContent = completed;
+        }
+
+        // ======================== التخزين المحلي الاحتياطي ========================
         function saveToLocalStorage(orders) {
             try {
                 localStorage.setItem(CONFIG.CACHE_KEY, JSON.stringify(orders));
-                localStorage.setItem(CONFIG.CACHE_TIMESTAMP_KEY, Date.now().toString());
+                localStorage.setItem(CONFIG.CACHE_KEY + '_timestamp', Date.now().toString());
             } catch (error) {
-                console.error('خطأ في الحفظ إلى التخزين المحلي:', error);
+                console.error('خطأ في الحفظ إلى localStorage:', error);
             }
         }
 
+        function loadFromLocalStorage() {
+            try {
+                const orders = JSON.parse(localStorage.getItem(CONFIG.CACHE_KEY) || '[]');
+                if (orders.length > 0) {
+                    processOrders(orders, { initialLoad: true });
+                } else {
+                    showEmptyState();
+                }
+            } catch (error) {
+                console.error('خطأ في التحميل من localStorage:', error);
+            }
+        }
+
+        // ======================== الاتصال بالخادم (تحسين تدريجي) ========================
+        async function loadOrdersWithRetry() {
+            if (!KitchenState.active || KitchenState.isLoading) return;
+            KitchenState.isLoading = true;
+            DOM.refreshBtn.innerHTML = '<i class="fas fa-spinner spinner"></i>';
+            
+            // تحديد آخر طابع زمني موجود
+            let lastSync = 0;
+            if (KitchenState.orders.length > 0) {
+                const timestamps = KitchenState.orders.map(o => new Date(o.timestamp).getTime());
+                lastSync = Math.max(...timestamps);
+            }
+            
+            try {
+                const url = `${CONFIG.API_URL}?action=getOrders&lastSync=${lastSync}&_=${Date.now()}`;
+                await fetchWithTimeout(url, { timeout: CONFIG.FETCH_TIMEOUT });
+                
+                KitchenState.currentRefreshInterval = CONFIG.REFRESH_INTERVAL;
+                KitchenState.retryCount = 0;
+            } catch (error) {
+                KitchenState.retryCount++;
+                if (KitchenState.retryCount <= CONFIG.MAX_RETRIES) {
+                    KitchenState.currentRefreshInterval = Math.min(
+                        CONFIG.REFRESH_INTERVAL * Math.pow(1.5, KitchenState.retryCount),
+                        CONFIG.MAX_REFRESH_INTERVAL
+                    );
+                } else {
+                    KitchenState.currentRefreshInterval = CONFIG.MAX_REFRESH_INTERVAL;
+                }
+                
+                if (KitchenState.retryCount === 1) {
+                    showNotification('⚠️ بطء في الاتصال، يتم عرض الطلبات المحفوظة', 'info');
+                }
+            } finally {
+                KitchenState.isLoading = false;
+                DOM.refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+            }
+        }
+
+        async function fetchWithTimeout(url, options = {}) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), options.timeout);
+            
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    signal: controller.signal,
+                    mode: 'cors',
+                    headers: { 'Accept': 'application/json' }
+                });
+                clearTimeout(id);
+                if (!response.ok) throw new Error('Network response not ok');
+                
+                const data = await response.json();
+                if (data.success && data.orders) {
+                    await processOrders(data.orders); // استقبال فقط الطلبات الجديدة
+                } else {
+                    throw new Error('Invalid data format');
+                }
+            } catch (error) {
+                clearTimeout(id);
+                throw error;
+            }
+        }
+
+        async function updateOrderStatus(orderId, status) {
+            try {
+                const formData = new URLSearchParams();
+                formData.append('action', 'updateOrderStatus');
+                formData.append('orderId', orderId);
+                formData.append('status', status);
+                
+                fetch(CONFIG.API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                }).catch(e => console.log('فشل تحديث الحالة على الخادم'));
+            } catch (error) {
+                console.error('خطأ في تحديث حالة الطلب:', error);
+            }
+        }
+
+        // ======================== وظائف النوافذ المنبثقة والصوت ========================
         function showNewOrderPopup(order) {
             if (!KitchenState.active || KitchenState.popupActive) return;
             
@@ -1597,7 +1612,7 @@
         }
 
         function startAlertTimer() {
-            const endTime = Date.now() + CONFIG.ALERT_DURATION;
+            const endTime = Date.now() + 60000; // دقيقة واحدة
             
             if (KitchenState.timerInterval) {
                 clearInterval(KitchenState.timerInterval);
@@ -1618,40 +1633,10 @@
                 
                 DOM.timerDisplay.textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
                 
-                const progress = ((CONFIG.ALERT_DURATION - remaining) / CONFIG.ALERT_DURATION) * 100;
+                const progress = ((60000 - remaining) / 60000) * 100;
                 DOM.progressFill.style.width = `${progress}%`;
             }, 100);
         }
-
-        DOM.receiveBtn.addEventListener('click', () => {
-            if (!KitchenState.currentAlertOrder) return;
-            
-            closePopup();
-            
-            const orderId = KitchenState.currentAlertOrder.orderId;
-            const order = KitchenState.orders.find(o => o.orderId === orderId);
-            
-            if (order) {
-                order.status = 'preparing';
-                updateStats();
-                
-                const card = KitchenState.orderElements.get(orderId);
-                if (card) {
-                    updateCardContent(card, order);
-                    card.dataset.status = 'preparing';
-                    delete card.dataset.completedAt;
-                    sortCardsByTime();
-                    filterCardsByStatus(KitchenState.currentStatus);
-                }
-                
-                saveToLocalStorage(KitchenState.orders);
-                updateOrderStatus(orderId, 'preparing');
-            }
-            
-            showNotification('✅ تم استلام الطلب', 'success');
-        });
-
-        DOM.closePopupBtn.addEventListener('click', closePopup);
 
         function closePopup() {
             stopAlertSound();
@@ -1669,66 +1654,43 @@
             DOM.progressFill.style.width = '0%';
         }
 
-        async function updateOrderStatus(orderId, status) {
-            try {
-                const formData = new URLSearchParams();
-                formData.append('action', 'updateOrderStatus');
-                formData.append('orderId', orderId);
-                formData.append('status', status);
-                
-                // لا ننتظر النتيجة (fire and forget)
-                fetch(CONFIG.API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: formData
-                }).catch(e => console.log('فشل تحديث الحالة على الخادم'));
-            } catch (error) {
-                console.error('خطأ في تحديث حالة الطلب:', error);
-            }
-        }
-
-        window.completeOrder = function(orderId) {
+        // ======================== دوال الأحداث العامة ========================
+        window.completeOrder = async function(orderId) {
             const order = KitchenState.orders.find(o => o.orderId === orderId);
-            if (order) {
-                const now = new Date().toISOString();
-                order.status = 'completed';
-                order.completedAt = now;
-                
-                updateStats();
-                
-                const card = KitchenState.orderElements.get(orderId);
-                if (card) {
-                    updateCardContent(card, order);
-                    card.dataset.status = 'completed';
-                    card.dataset.completedAt = now;
-                    sortCardsByTime();
-                    filterCardsByStatus(KitchenState.currentStatus);
-                }
-                
-                saveToLocalStorage(KitchenState.orders);
-                updateOrderStatus(orderId, 'completed');
+            if (!order) return;
+            
+            const now = new Date().toISOString();
+            order.status = 'completed';
+            order.completedAt = now;
+            
+            updateStats();
+            
+            const card = KitchenState.orderElements.get(orderId);
+            if (card) {
+                updateCardContent(card, order);
+                card.dataset.status = 'completed';
+                card.dataset.completedAt = now;
+                sortCardsByTime();
+                filterCardsByStatus(KitchenState.currentStatus);
             }
             
+            // حفظ في IndexedDB
+            try {
+                await DB.putOrders([order]);
+            } catch (e) {
+                console.warn('فشل حفظ التحديث في IndexedDB', e);
+                saveToLocalStorage(KitchenState.orders);
+            }
+            
+            updateOrderStatus(orderId, 'completed');
             showNotification('✅ تم إكمال الطلب', 'success');
         };
 
         window.deleteOrder = async function(orderId) {
             if (!confirm('هل أنت متأكد من حذف هذا الطلب؟')) return;
             
-            const initialLength = KitchenState.orders.length;
             KitchenState.orders = KitchenState.orders.filter(o => o.orderId !== orderId);
-            
-            if (KitchenState.orders.length === initialLength) {
-                showNotification('⚠️ الطلب غير موجود', 'error');
-                return;
-            }
-            
-            if (KitchenState.lastOrderIds.has(orderId)) {
-                KitchenState.lastOrderIds.delete(orderId);
-            }
+            KitchenState.lastOrderIds.delete(orderId);
             
             const card = KitchenState.orderElements.get(orderId);
             if (card) {
@@ -1737,45 +1699,35 @@
             }
             
             updateStats();
+            filterCardsByStatus(KitchenState.currentStatus);
             
             if (KitchenState.orderElements.size === 0) {
                 showEmptyState();
-            } else {
-                filterCardsByStatus(KitchenState.currentStatus);
             }
             
-            saveToLocalStorage(KitchenState.orders);
+            // حذف من IndexedDB
+            try {
+                await DB.deleteOrder(orderId);
+            } catch (e) {
+                console.warn('فشل حذف من IndexedDB', e);
+            }
             
+            // إرسال الحذف إلى الخادم
             try {
                 const formData = new URLSearchParams();
                 formData.append('action', 'deleteOrder');
                 formData.append('orderId', orderId);
-                
                 fetch(CONFIG.API_URL, {
                     method: 'POST',
                     mode: 'no-cors',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: formData
                 }).catch(e => console.log('فشل حذف الطلب من الخادم'));
-                
-                showNotification('🗑️ تم حذف الطلب من النظام', 'success');
+                showNotification('🗑️ تم حذف الطلب', 'success');
             } catch (error) {
-                console.error('خطأ في حذف الطلب من الخادم:', error);
                 showNotification('⚠️ تم الحذف محلياً، لكن فشل الاتصال بالخادم', 'error');
             }
         };
-
-        function updateStats() {
-            const preparing = KitchenState.orders.filter(o => o.status === 'preparing').length;
-            const completed = KitchenState.orders.filter(o => o.status === 'completed').length;
-            
-            DOM.preparingCount.textContent = preparing;
-            DOM.completedCount.textContent = completed;
-            DOM.preparingBadge.textContent = preparing;
-            DOM.completedBadge.textContent = completed;
-        }
 
         window.printOrder = function(orderId) {
             const order = KitchenState.orders.find(o => o.orderId === orderId);
@@ -1873,6 +1825,97 @@
             setTimeout(() => printWindow.print(), 500);
         };
 
+        // ======================== التهيئة وبدء التشغيل ========================
+        async function initializeApp() {
+            try {
+                await DB.init();
+                const orders = await DB.getAllOrders();
+                processOrders(orders, { initialLoad: true });
+            } catch (error) {
+                console.error('فشل تهيئة IndexedDB، استخدام localStorage كاحتياطي', error);
+                loadFromLocalStorage(); // الرجوع للطريقة القديمة
+            }
+            
+            startAutoRefresh();
+            startCleanupTask();
+        }
+
+        function startAutoRefresh() {
+            if (KitchenState.refreshInterval) {
+                clearInterval(KitchenState.refreshInterval);
+            }
+            
+            KitchenState.refreshInterval = setInterval(() => {
+                if (KitchenState.active && !KitchenState.popupActive) {
+                    loadOrdersWithRetry();
+                }
+            }, KitchenState.currentRefreshInterval);
+        }
+
+        function startCleanupTask() {
+            setInterval(async () => {
+                try {
+                    await DB.clearOldOrders(CONFIG.OLD_DAYS_THRESHOLD);
+                    // تحديث القائمة المحلية بعد الحذف
+                    const orders = await DB.getAllOrders();
+                    processOrders(orders);
+                    console.log('تم تنظيف الطلبات القديمة');
+                } catch (error) {
+                    console.error('فشل تنظيف الطلبات القديمة', error);
+                }
+            }, CONFIG.CLEANUP_INTERVAL);
+        }
+
+        function playTestSound() {
+            if (DOM.notificationSound && KitchenState.soundEnabled) {
+                DOM.notificationSound.volume = 0.3;
+                DOM.notificationSound.play()
+                    .then(() => {
+                        DOM.notificationSound.pause();
+                        DOM.notificationSound.currentTime = 0;
+                    })
+                    .catch(e => console.log('تحتاج النقر أولاً لتشغيل الصوت'));
+            }
+        }
+
+        function handleOnline() {
+            KitchenState.online = true;
+            showNotification('📶 تم استعادة الاتصال بالإنترنت', 'success');
+            KitchenState.currentRefreshInterval = CONFIG.REFRESH_INTERVAL;
+            loadOrdersWithRetry();
+        }
+
+        function handleOffline() {
+            KitchenState.online = false;
+            showNotification('⚠️ انقطع الاتصال بالإنترنت، يتم عرض الطلبات المخزنة', 'error');
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.style.background = type === 'success' ? '#2D5A27' : type === 'error' ? '#8B5A2B' : '#4A7B3D';
+            notification.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i> ${message}`;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // ======================== ربط الأحداث ========================
+        DOM.activateBtn.addEventListener('click', async () => {
+            KitchenState.active = true;
+            KitchenState.initialLoad = true;
+            DOM.startup.classList.add('hidden');
+            DOM.mainContent.style.opacity = '1';
+            
+            playTestSound();
+            
+            await initializeApp(); // تهيئة IndexedDB وجلب الطلبات
+            
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+            
+            showNotification('✅ تم تشغيل نظام الكاش', 'success');
+        });
+
         DOM.soundToggle.addEventListener('click', () => {
             KitchenState.soundEnabled = !KitchenState.soundEnabled;
             DOM.soundToggle.innerHTML = KitchenState.soundEnabled ? 
@@ -1899,27 +1942,35 @@
             });
         });
 
-        function startAutoRefresh() {
-            if (KitchenState.refreshInterval) {
-                clearInterval(KitchenState.refreshInterval);
+        DOM.receiveBtn.addEventListener('click', () => {
+            if (!KitchenState.currentAlertOrder) return;
+            
+            closePopup();
+            
+            const orderId = KitchenState.currentAlertOrder.orderId;
+            const order = KitchenState.orders.find(o => o.orderId === orderId);
+            
+            if (order) {
+                // لا حاجة لتغيير الحالة، هو أصلاً preparing
+                updateStats();
+                
+                const card = KitchenState.orderElements.get(orderId);
+                if (card) {
+                    updateCardContent(card, order);
+                    card.dataset.status = 'preparing';
+                    delete card.dataset.completedAt;
+                    sortCardsByTime();
+                    filterCardsByStatus(KitchenState.currentStatus);
+                }
+                
+                // حفظ في IndexedDB
+                DB.putOrders([order]).catch(e => console.warn('فشل حفظ بعد الاستلام', e));
             }
             
-            KitchenState.refreshInterval = setInterval(() => {
-                if (KitchenState.active && !KitchenState.popupActive) {
-                    loadOrdersWithRetry();
-                }
-            }, KitchenState.currentRefreshInterval);
-        }
+            showNotification('✅ تم استلام الطلب', 'success');
+        });
 
-        function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            notification.className = 'notification';
-            notification.style.background = type === 'success' ? '#2D5A27' : type === 'error' ? '#8B5A2B' : '#4A7B3D';
-            notification.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i> ${message}`;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => notification.remove(), 3000);
-        }
+        DOM.closePopupBtn.addEventListener('click', closePopup);
 
         DOM.popupOverlay.addEventListener('click', (e) => {
             if (e.target === DOM.popupOverlay) {
@@ -1930,7 +1981,7 @@
         window.addEventListener('storage', (e) => {
             if (e.key === CONFIG.CACHE_KEY && KitchenState.active) {
                 console.log('تم تحديث الطلبات في نافذة أخرى');
-                loadCachedOrders();
+                loadFromLocalStorage();
             }
         });
     </script>
